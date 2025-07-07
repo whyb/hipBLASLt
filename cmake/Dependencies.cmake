@@ -22,6 +22,8 @@
 # ########################################################################
 
 # Dependencies
+set(ROCBlASLT_BUILD_CLIENTS_PYTHON OFF)
+option(BUILD_EXT_OPS "Build Extended Operations" OFF)
 
 # Git
 find_package(Git REQUIRED)
