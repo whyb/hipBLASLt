@@ -191,13 +191,16 @@ else()
       set( Tensile_ROOT "${CMAKE_BINARY_DIR}/virtualenv/Lib/site-packages/Tensile" )
     endif()
 
+    set(TENSILELITE_PATH "${CMAKE_SOURCE_DIR}/tensilelite"
+      CACHE PATH "Path to tensilelite source dir for virtualenv_install")
+
     include(virtualenv)
     if (Tensile_TEST_LOCAL_PATH)
       virtualenv_install(${Tensile_TEST_LOCAL_PATH})
       message (STATUS "using local Tensile from ${Tensile_TEST_LOCAL_PATH}, copied to ${Tensile_ROOT}")
     else()
       # virtualenv_install(${CMAKE_SOURCE_DIR}/tensilelite)
-      virtualenv_install(${TENSLITE_PATH})
+      virtualenv_install(${TENSILELITE_PATH})
     endif()
     message(STATUS "Adding ${VIRTUALENV_HOME_DIR} to CMAKE_PREFIX_PATH")
     list(APPEND CMAKE_PREFIX_PATH ${VIRTUALENV_HOME_DIR})
