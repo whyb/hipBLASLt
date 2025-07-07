@@ -180,6 +180,22 @@ endif()
 # Generate export header
 include(GenerateExportHeader)
 generate_export_header(hipblaslt EXPORT_FILE_NAME ${PROJECT_BINARY_DIR}/include/hipblaslt/hipblaslt-export.h)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  file(READ
+    "${PROJECT_BINARY_DIR}/include/hipblaslt/hipblaslt-export.h"
+    _exp_hdr
+  )
+  string(REGEX REPLACE
+    "#define HIPBLASLT_EXPORT __declspec\\(dllexport\\)"
+    "#define HIPBLASLT_EXPORT"
+    _exp_hdr
+    "${_exp_hdr}"
+  )
+  file(WRITE
+    "${PROJECT_BINARY_DIR}/include/hipblaslt/hipblaslt-export.h"
+    "${_exp_hdr}"
+  )
+endif()
 
 if (BUILD_FILE_REORG_BACKWARD_COMPATIBILITY)
   rocm_wrap_header_file(
