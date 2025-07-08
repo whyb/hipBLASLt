@@ -194,6 +194,16 @@ else()
     set(TENSILELITE_PATH "${CMAKE_SOURCE_DIR}/tensilelite"
       CACHE PATH "Path to tensilelite source dir for virtualenv_install")
 
+    if(BUILD_WITH_TENSILE)
+      set(_tl_inc "${TENSILELITE_PATH}/Tensile/Source/lib/include")
+      if(EXISTS "${_tl_inc}")
+        message(STATUS "Adding Tensile headers from: ${_tl_inc}")
+        include_directories("${_tl_inc}")
+      else()
+        message(FATAL_ERROR "Cannot find Tensile include dir: ${_tl_inc}")
+      endif()
+    endif()
+
     include(virtualenv)
     if (Tensile_TEST_LOCAL_PATH)
       virtualenv_install(${Tensile_TEST_LOCAL_PATH})
