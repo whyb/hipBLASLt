@@ -1,0 +1,104 @@
+name: Build hipBLASLt (Windows)
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout workflow repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: |
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          git
+          mingw-w64-x86_64-python3
+
+    - name: Cache HIP SDK
+      id: cache-hip
+      uses: actions/cache@v4
+      with:
+        path: C:\Program Files\AMD\ROCM
+        key: ${{ runner.os }}-rocm-6.4.2
+
+    - name: Setup HIP
+      if: steps.cache-hip.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $InstallerUrl = 'https://download.amd.com/developer/eula/rocm-hub/AMD-Software-PRO-Edition-25.Q3-WinSvr2022-For-HIP.exe'
+        $InstallerPath = "$env:RUNNER_TEMP\hip_installer.exe"
+        Invoke-WebRequest -Uri $InstallerUrl -OutFile $InstallerPath
+        $TargetDir = "D:\AMD\ROCm\6.4\"
+        New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
+        Start-Process $InstallerPath -ArgumentList "-INSTALL", "-OUTPUT screen", "-LOG D:\AMD\ROCm\6.4\setup.log" -NoNewWindow -Wait
+        Copy-Item "C:\Program Files\AMD\ROCm\6.4\" -Destination "D:\AMD\ROCm\" -Recurse -Force
+        dir D:\AMD\ROCm\6.4\bin
+
+    - name: Set ROCm environment
+      run: |
+        echo "D:\AMD\ROCm\6.4\bin" >> $GITHUB_PATH
+
+    - name: Clone hipBLASLt
+      shell: bash
+      run: |
+        mkdir depend && cd depend
+        git clone -v --recurse-submodules --depth 1 --branch rocm-6.4.2 https://github.com/ROCm/hipBLASLt
+        cd hipBLASLt
+        mkdir build
+
+    - name: Build hipBLASLt
+      shell: bash
+      run: |
+        cd depend/hipBLASLt
+        TENS_SRC="${GITHUB_WORKSPACE}/depend/hipBLASLt/tensilelite"
+        cmake -S . -B build -G Ninja -Wno-dev \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_C_COMPILER="D:/AMD/ROCm/6.4/bin/clang.exe" \
+          -D CMAKE_CXX_COMPILER="D:/AMD/ROCm/6.4/bin/clang++.exe" \
+          -D CMAKE_RC_COMPILER=windres \
+          -D ROCM_DIR="D:/AMD/ROCm/6.4/lib/cmake/hip" \
+          -D HIP_PATH="D:/AMD/ROCm/6.4/lib/cmake/hip" \
+          -D hip_DIR="D:/AMD/ROCm/6.4/lib/cmake/hip" \
+          -D HIP_PLATFORM=amd \
+          -D TENSILELITE_PATH="${TENS_SRC}" \
+          -D BUILD_WITH_TENSILE=ON \
+          -D BUILD_CLIENTS_PYTHON=OFF \
+          -D BUILD_DOCS=OFF \
+          -D BUILD_CLIENTS_BENCHMARKS=OFF \
+          -D BUILD_CLIENTS_SAMPLES=OFF \
+          -D BUILD_CLIENTS_TESTS=OFF \
+          -D BUILD_VERBOSE=OFF \
+          -D BUILD_SHARED_LIBS=ON
+        cmake --build build --config Release --verbose
+        cmake --install build --config Release --prefix ../install
+
+    - name: Package hipBLASLt
+      shell: pwsh
+      run: Compress-Archive depend/install -DestinationPath hipBLASLt-win64.zip
+
+    - name: Get version info
+      shell: bash
+      run: |
+        echo HBLASLT_VERSION=rocm-6.4.2 >> $GITHUB_ENV
+        echo TIME=`date -u +"%Y%m%d-%H%M"` >> $GITHUB_ENV
+
+    - name: Release hipBLASLt
+      uses: softprops/action-gh-release@v2
+      with:
+        files: hipBLASLt-win64.zip
+        name: hipBLASLt ${{ env.HBLASLT_VERSION }}
+        tag_name: hipBLASLt-${{ env.HBLASLT_VERSION }}-${{ env.TIME }}
+        prerelease: false
